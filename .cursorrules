@@ -1,0 +1,34 @@
+# Time Track Solutions - AI Development Guidelines
+
+## Project Context
+Time Track Solutions is a modern sports event management platform primarily focused on running and ultra-endurance events. It handles registration, logistics, user profiles, and back-office administration. 
+
+## Technology Stack
+- **Frontend**: React (v18), Vite, TypeScript
+- **Styling**: Tailwind CSS, Framer Motion for animations
+- **Backend/DB**: Supabase (PostgreSQL, Auth, Storage)
+- **Icons**: Lucide React
+- **Scroll**: Lenis (Smooth scrolling)
+
+## Roles & Access Control
+- **Root (RT)**: Global control over users, database, and system.
+- **Admin (AD)**: Approves events, orders, handles analytics and disputes.
+- **Organizer (OR)**: Creates events, manages variants and participant results.
+- **Athlete (AT)**: Browses events, registers, pays, and views their results.
+
+## Key Design System
+- **Theme**: Neobrutalist design with tactical elements.
+- **Colors**: Primarily Black (#050505), with Red/Blue accents depending on the role (Red for Admin, Blue for Organizer, Purple for Root).
+- **Typography**: Uses high-contrast, bold and uppercase fonts for headings (`font-display font-black uppercase tracking-tighter`).
+
+## General AI Rules
+1. **TypeScript First**: Always use TypeScript and proper types when creating new components or functions.
+2. **Remove Useless Code**: If a component, import, or variable is no longer needed, remove it entirely to keep the codebase clean.
+3. **Keep Files Small**: Break down large components into smaller, reusable pieces within `src/components/`.
+4. **Use Framer Motion**: When implementing animations, prefer `framer-motion` to keep a smooth and premium feel.
+5. **Human Readable**: Always add JSDoc comments to complex utility functions.
+6. **No "any" type**: Replace `any` with specific types or interfaces where possible (e.g. define proper types for Database rows).
+7. **Supabase Integrity**: Do not write queries that could bypass RLS (Row Level Security). Follow the existing patterns for data fetching.
+
+## Ready for GitHub
+This repository is pre-configured and ready to be pushed to GitHub. Make sure that changes are committed logically, following Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`).
