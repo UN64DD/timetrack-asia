@@ -671,58 +671,44 @@ export default function OrganizerDashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      let payload: any = { 
+      const payload = { 
         title: eventForm.title,
         description: eventForm.description,
         location: eventForm.location,
         date: eventForm.date,
         category: eventForm.category,
         price_range: eventForm.price_range,
-        variants: eventForm.variants,
         status: eventForm.status,
         organizer_id: user?.id,
-        image_url: eventForm.image_url
+        image_url: eventForm.image_url,
+        registration_config: eventForm.registration_config
       };
       
-      const sanitize = (data: any) => {
-        const clean = { ...data };
-        delete clean.image_url;
-        delete clean.banner_image;
-        delete clean.registration_config;
-        return clean;
-      };
-
-      let { error } = await supabase.from('events').insert([payload]);
-
-      // Tier 2: Resilient Fallback (Handling schema drifts like missing price_range)
-      if (error && (error.code === 'PGRST204' || error.code === '42703')) {
-        console.warn('DB Schema conflict detected. Executing maximum stripping fallback...');
-        
-        const metadata = {
-          price_range: eventForm.price_range,
-          category: eventForm.category,
-          variants: eventForm.variants,
-          registration_config: eventForm.registration_config,
-          image_url: eventForm.image_url
-        };
-
-        const metadataStr = `\n\n[PROTOCOL_DATA:${JSON.stringify(metadata)}]`;
-        
-        // Dynamic sanitize based on error hints if possible, or just go safe
-        const sanitized = {
-          title: eventForm.title,
-          description: (eventForm.description || '') + metadataStr,
-          location: eventForm.location,
-          date: eventForm.date,
-          status: eventForm.status,
-          organizer_id: user?.id
-        };
-        
-        const retry = await supabase.from('events').insert([sanitized]);
-        error = retry.error;
-      }
+      const { data, error } = await supabase
+        .from('events')
+        .insert([payload])
+        .select()
+        .single();
 
       if (error) throw error;
+      
+      // Save variants properly
+      if (eventForm.variants && eventForm.variants.length > 0) {
+        const variantsWithEvent = eventForm.variants
+          .filter(v => v.name && v.price)
+          .map(v => ({ 
+            name: v.name, 
+            price: parseFloat(v.price) || 0, 
+            event_id: data.id 
+          }));
+          
+        if (variantsWithEvent.length > 0) {
+          const { error: variantError } = await supabase
+            .from('event_variants')
+            .insert(variantsWithEvent);
+          if (variantError) throw variantError;
+        }
+      }
       
       showNotification('Event Created', 'success');
       fetchOrganizerData();

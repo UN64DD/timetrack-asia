@@ -3,6 +3,7 @@ import { MapPin, Calendar, Tag, User, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import type { EventVariant } from '../types';
 import CrypticText from './CrypticText';
 import { playTap } from '../lib/sounds';
 
@@ -13,42 +14,25 @@ export default function EventCard({ event, index = 0 }: { event: any, index?: nu
   useEffect(() => {
     if (!event?.id) return;
     async function fetchData() {
-      // 1. Try DB Relation
-      const { data: priceData } = await supabase
+      // Try DB Relation - now variants are properly linked
+      const { data: priceData, error } = await supabase
         .from('event_variants')
-        .select('price, name')
+        .select('id, price, name')
         .eq('event_id', event.id)
         .order('price', { ascending: true });
-      
-      if (priceData && priceData.length > 0) {
+       
+      if (!error && priceData && priceData.length > 0) {
         setMinPrice(priceData[0].price);
         setCategories(priceData.map(v => v.name));
-      } else {
-        // 2. Try Protocol Metadata Fallback
-        if (event.description && event.description.includes('[PROTOCOL_DATA:')) {
-          try {
-            const metaMatch = event.description.match(/\[PROTOCOL_DATA:(.*)\]/);
-            if (metaMatch && metaMatch[1]) {
-              const meta = JSON.parse(metaMatch[1]);
-              if (meta.variants && meta.variants.length > 0) {
-                const sorted = [...meta.variants].sort((a, b) => a.price - b.price);
-                setMinPrice(sorted[0].price);
-                setCategories(sorted.map((v: any) => v.name));
-              } else if (meta.price_range) {
-                // Handle simple price string "100"
-                const p = parseFloat(meta.price_range);
-                if (!isNaN(p)) setMinPrice(p);
-                setCategories(meta.category ? [meta.category] : ['Open']);
-              }
-            }
-          } catch (e) {
-            console.warn('Card protocol parsing error:', e);
-          }
-        }
+      } else if (event.variants && event.variants.length > 0) {
+        // Use pre-fetched variants if available
+        const sorted = [...event.variants].sort((a: EventVariant, b: EventVariant) => a.price - b.price);
+        setMinPrice(sorted[0].price);
+        setCategories(sorted.map(v => v.name));
       }
     }
     fetchData();
-  }, [event?.id]);
+  }, [event?.id, event?.variants]);
 
   return (
     <motion.div 

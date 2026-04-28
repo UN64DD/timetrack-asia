@@ -11,6 +11,28 @@ import { supabase } from '../lib/supabase';
 export default function Home() {
   const { t } = useLanguage();
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*, event_variants(id, name, price)')
+        .neq('status', 'archived')
+        .order('date', { ascending: true })
+        .limit(3);
+
+      if (error) throw error;
+      setUpcomingEvents(data || []);
+    } catch (err) {
+      console.error('Error fetching events:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

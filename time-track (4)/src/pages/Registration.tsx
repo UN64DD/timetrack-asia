@@ -73,29 +73,15 @@ export default function Registration() {
         .select('*, event_variants (*)')
         .eq('id', id)
         .single();
-      
+       
       if (error) throw error;
       
-      // Resilient Parsing for Protocol Metadata
+      // Clean description if it contains metadata
       let processedData = { ...data };
       if (data.description && data.description.includes('[PROTOCOL_DATA:')) {
-        try {
-          const metaMatch = data.description.match(/\[PROTOCOL_DATA:(.*)\]/);
-          if (metaMatch && metaMatch[1]) {
-            const meta = JSON.parse(metaMatch[1]);
-            processedData = { 
-              ...processedData, 
-              ...meta,
-              event_variants: (data.event_variants && data.event_variants.length > 0) 
-                ? data.event_variants 
-                : meta.variants?.map((v: any, i: number) => ({ id: `meta-${i}`, ...v }))
-            };
-          }
-        } catch (e) {
-          console.warn('Protocol metadata corruption:', e);
-        }
+        processedData.description = data.description.split('[PROTOCOL_DATA:')[0].trim();
       }
-
+ 
       setEvent(processedData);
     } catch (err) {
       console.error('Error fetching event:', err);
@@ -105,6 +91,58 @@ export default function Registration() {
   };
 
   const variant = event?.event_variants?.find((v: any) => v.id.toString() === variantId);
+  
+  const handleRegistration = async () => {
+    if (!variant) {
+      alert('Please select a variant');
+      return;
+    }
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      
+      // Check for duplicate registration
+      const { data: existing } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('event_id', event.id)
+        .eq('variant_id', variant.id)
+        .maybeSingle();
+        
+      if (existing) {
+        alert('You are already registered for this event variant');
+        return;
+      }
+      
+      // Create registration
+      const { error } = await supabase
+        .from('registrations')
+        .insert([{
+          user_id: user.id,
+          event_id: event.id,
+          variant_id: variant.id,
+          status: 'pending'
+        }]);
+        
+      if (error) throw error;
+      
+      alert('Registration successful!');
+      navigate('/profile');
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      alert('Registration failed: ' + err.message);
+    }
+  };
+
+  // Connect registration to step 4
+  const handleStep4Click = () => {
+    handleRegistration();
+  };
 
   if (loading) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
@@ -379,13 +417,13 @@ export default function Registration() {
                   Back
                 </button>
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => alert('Payment Gate Opening...')}
-                  className="bg-brand text-black py-6 px-16 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center gap-3 group shadow-[0_0_40px_rgba(204,255,0,0.4)]"
-                >
-                  Authorize RM{variant ? variant.price : event.price}.00
-                </motion.button>
+                   whileHover={{ scale: 1.05 }}
+                   whileTap={{ scale: 0.95 }}
+                   onClick={handleStep4Click}
+                   className="bg-brand text-black py-6 px-16 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center gap-3 group shadow-[0_0_40px_rgba(204,255,0,0.4)]"
+                 >
+                   Authorize RM{variant ? variant.price : event.price}.00
+                 </motion.button>
               </div>
             </div>
           )}

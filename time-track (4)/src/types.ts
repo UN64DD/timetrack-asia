@@ -1,23 +1,36 @@
 export type SportsCategory = 'Trail' | 'Night' | 'Ultra' | 'Road' | 'Running' | 'Cycling';
+export type UserRole = 'athlete' | 'organizer' | 'admin';
 
 export interface EventVariant {
-  id: number;
-  attributes: Record<string, string>;
+  id: string;
+  event_id: string;
+  name: string;
   price: number;
-  availability: string;
+  created_at?: string;
 }
 
 export interface SportsEvent {
   id: string;
   title: string;
+  description: string;
   date: string;
   location: string;
-  price: string;
   category: string;
-  status: 'Open' | 'Closed' | 'Archived';
-  image?: string;
-  description?: string;
+  status: 'upcoming' | 'live' | 'completed' | 'draft' | 'published' | 'closed';
+  banner_image?: string;
+  image_url?: string;
+  price_range?: string;
+  registration_config?: Record<string, any>;
+  organizer_id: string;
   variants?: EventVariant[];
-  subEvents?: SportsEvent[];
-  url?: string;
+  created_at?: string;
+}
+
+export interface Registration {
+  id: string;
+  user_id: string;
+  event_id: string;
+  variant_id: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  created_at?: string;
 }
