@@ -30,11 +30,10 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         return;
       }
 
-      // Fetch profile - selecting specific columns to avoid 406 errors on missing ones
-      // Note: 'status' column is being added via migration, but we select safely for now
+      // Fetch profile with proper typing for the role enum
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, role, full_name')
+        .select('id, role, full_name, status')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -42,9 +41,8 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         console.error('Profile fetch error:', profileError);
       }
 
-      // Safe fallbacks for missing columns
-      const userRole = profile?.role || 'athlete';
-      const userStatus = (profile as any)?.status || 'active';
+      const userRole = (profile?.role as string) || 'athlete';
+      const userStatus = profile?.status || 'active';
 
       // 1. Check for Ban Status
       if (userStatus === 'banned') {
@@ -64,7 +62,6 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
       }
 
       if (!isAuthorized) {
-        // Instead of navigating (which causes loops), we set a denied state
         setDenied(true);
         return;
       }

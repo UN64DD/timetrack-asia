@@ -23,30 +23,13 @@ export default function EventDetail() {
         .eq('id', id)
         .single();
       if (error) throw error;
-      
-      // Resilient Parsing for Protocol Metadata
+       
+      // Clean description if it contains metadata
       let processedData = { ...data };
       if (data.description && data.description.includes('[PROTOCOL_DATA:')) {
-        try {
-          const metaMatch = data.description.match(/\[PROTOCOL_DATA:(.*)\]/);
-          if (metaMatch && metaMatch[1]) {
-            const meta = JSON.parse(metaMatch[1]);
-            processedData = { 
-              ...processedData, 
-              ...meta,
-              // If variants were in metadata but not in DB relation
-              event_variants: (data.event_variants && data.event_variants.length > 0) 
-                ? data.event_variants 
-                : meta.variants?.map((v: any, i: number) => ({ id: `meta-${i}`, ...v }))
-            };
-            // Clean up description for UI
-            processedData.description = data.description.split('[PROTOCOL_DATA:')[0].trim();
-          }
-        } catch (e) {
-          console.warn('Protocol metadata corruption:', e);
-        }
+        processedData.description = data.description.split('[PROTOCOL_DATA:')[0].trim();
       }
-
+ 
       setEvent(processedData);
     } catch (err: any) {
       console.error(err);

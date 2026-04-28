@@ -18,7 +18,7 @@ export default function EventsPage() {
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select('*, event_variants(id, name, price)')
         .order('date', { ascending: true });
       if (error) throw error;
       setEvents(data || []);

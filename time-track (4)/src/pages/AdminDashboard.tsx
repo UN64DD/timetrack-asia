@@ -72,16 +72,26 @@ export default function AdminDashboard() {
       const { data: userData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       setUsers(userData || []);
 
-      // Fetch events
-      const eventQuery = supabase.from('events').select('*').order('date', { ascending: true });
-      if (profile?.role === 'organizer') {
-        eventQuery.eq('organizer_id', user?.id);
-      }
-      const { data: eventData } = await eventQuery;
+      // Fetch events with organizer info
+      const { data: eventData } = await supabase
+        .from('events')
+        .select(`
+          *,
+          profiles:organizer_id (full_name)
+        `)
+        .order('date', { ascending: true });
       setEvents(eventData || []);
       setEventCount(eventData?.length || 0);
 
-      const { data: regData } = await supabase.from('registrations').select('*, events(title)').order('created_at', { ascending: false });
+      // Fetch registrations with proper joins
+      const { data: regData } = await supabase
+        .from('registrations')
+        .select(`
+          *,
+          events (title),
+          profiles:user_id (full_name, email)
+        `)
+        .order('created_at', { ascending: false });
       setRegistrations(regData || []);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -184,39 +194,51 @@ export default function AdminDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       let eventId;
       
-      const payload = { ...eventForm, organizer_id: editingEvent ? editingEvent.organizer_id : user?.id };
-
-      const attemptSave = async (data: any) => {
-        if (editingEvent) {
-          return await supabase.from('events').update(data).eq('id', editingEvent.id);
-        } else {
-          return await supabase.from('events').insert([data]).select();
-        }
+      const payload = { 
+        title: eventForm.title,
+        description: eventForm.description,
+        date: eventForm.date,
+        location: eventForm.location,
+        category: eventForm.category,
+        status: eventForm.status,
+        banner_image: eventForm.banner_image,
+        organizer_id: editingEvent ? editingEvent.organizer_id : user?.id,
+        registration_config: {}
       };
 
-      let { data, error } = await attemptSave(payload);
-
-      // SCHEMA FALLBACK: Embed metadata if column is missing
-      if (error && error.message.includes('registration_config')) {
-        console.warn('Admin Schema Fallback Triggered');
-        const fallbackPayload = { 
-          ...payload,
-          description: `[REG_CONFIG:{}]` + (payload.description || '')
-        };
-        delete (fallbackPayload as any).registration_config;
-        const retry = await attemptSave(fallbackPayload);
-        data = retry.data;
-        error = retry.error;
+      if (editingEvent) {
+        const { data, error } = await supabase
+          .from('events')
+          .update(payload)
+          .eq('id', editingEvent.id)
+          .select()
+          .single();
+        if (error) throw error;
+        eventId = editingEvent.id;
+      } else {
+        const { data, error } = await supabase
+          .from('events')
+          .insert([payload])
+          .select()
+          .single();
+        if (error) throw error;
+        eventId = data.id;
       }
 
-      if (error) throw error;
-      
-      eventId = editingEvent ? editingEvent.id : data?.[0].id;
-      
+      // Save variants
       await supabase.from('event_variants').delete().eq('event_id', eventId);
       if (variants.length > 0) {
-        await supabase.from('event_variants').insert(variants.map(v => ({ ...v, event_id: eventId })));
+        const variantsWithEvent = variants.map(v => ({ 
+          name: v.name || 'Default', 
+          price: parseFloat(v.price) || 0, 
+          event_id: eventId 
+        }));
+        const { error: variantError } = await supabase
+          .from('event_variants')
+          .insert(variantsWithEvent);
+        if (variantError) throw variantError;
       }
+
       showNotification('Event Registry Updated', 'success');
       setIsEventModalOpen(false);
       fetchDashboardData();
