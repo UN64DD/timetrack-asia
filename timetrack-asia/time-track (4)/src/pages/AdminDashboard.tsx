@@ -17,31 +17,44 @@ import {
 } from 'recharts';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/NotificationContext';
+import { DashboardEvent, DashboardUser, DashboardRegistration } from '../types';
 
-const ROOT_EMAIL = 'nithyananthanimalan@gmail.com';
+const ROOT_EMAIL = import.meta.env.VITE_ROOT_ADMIN_EMAIL || 'nithyananthanimalan@gmail.com';
 
 import CustomCalendar from '../components/CustomCalendar';
 import CustomDropdown from '../components/CustomDropdown';
+import Pagination from '../components/Pagination';
+import ImageWithFallback from '../components/ImageWithFallback';
+import { parseEventDescription } from '../lib/eventMetadata';
 
 export default function AdminDashboard() {
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'events' | 'settings'>('overview');
-  const [users, setUsers] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [users, setUsers] = useState<DashboardUser[]>([]);
+  const [events, setEvents] = useState<DashboardEvent[]>([]);
+  const [registrations, setRegistrations] = useState<DashboardRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [editingEvent, setEditingEvent] = useState<DashboardEvent | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  
+
+  // Pagination state
+  const [usersPage, setUsersPage] = useState(1);
+  const [eventsPage, setEventsPage] = useState(1);
+  const [regsPage, setRegsPage] = useState(1);
+  const PAGE_SIZE = 20;
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalEvents, setTotalEvents] = useState(0);
+  const [totalRegs, setTotalRegs] = useState(0);
+
   // Profile & Quota Data
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<DashboardUser | null>(null);
   const [eventCount, setEventCount] = useState(0);
-  
+
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
-  
+
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -52,7 +65,7 @@ export default function AdminDashboard() {
     status: 'upcoming'
   });
 
-  const [variants, setVariants] = useState<any[]>([]);
+  const [variants, setVariants] = useState<EventVariant[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -68,31 +81,47 @@ export default function AdminDashboard() {
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user?.id).single();
       setUserProfile(profile);
 
-      // Fetch all users
-      const { data: userData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      // Fetch paginated users
+      const from = (usersPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data: userData, count: userCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
       setUsers(userData || []);
+      setTotalUsers(userCount || 0);
 
-      // Fetch events with organizer info
-      const { data: eventData } = await supabase
+      // Fetch paginated events with organizer info
+      const eventFrom = (eventsPage - 1) * PAGE_SIZE;
+      const eventTo = eventFrom + PAGE_SIZE - 1;
+      const { data: eventData, count: eventCount } = await supabase
         .from('events')
         .select(`
           *,
           profiles:organizer_id (full_name)
-        `)
-        .order('date', { ascending: true });
+        `, { count: 'exact' })
+        .order('date', { ascending: true })
+        .range(eventFrom, eventTo);
       setEvents(eventData || []);
-      setEventCount(eventData?.length || 0);
+      setTotalEvents(eventCount || 0);
+      setEventCount(eventCount || 0);
 
-      // Fetch registrations with proper joins
-      const { data: regData } = await supabase
+      // Fetch paginated registrations with proper joins including variant prices
+      const regFrom = (regsPage - 1) * PAGE_SIZE;
+      const regTo = regFrom + PAGE_SIZE - 1;
+      const { data: regData, count: regCount } = await supabase
         .from('registrations')
         .select(`
           *,
           events (title),
-          profiles:user_id (full_name, email)
-        `)
-        .order('created_at', { ascending: false });
+          profiles:user_id (full_name, email),
+          event_variants!inner (price)
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(regFrom, regTo);
       setRegistrations(regData || []);
+      setTotalRegs(regCount || 0);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
@@ -141,11 +170,14 @@ export default function AdminDashboard() {
   const purgeUser = async (userId: string, userEmail: string) => {
     if (userEmail === ROOT_EMAIL) return showNotification('ROOT PROTECTION ACTIVE', 'error');
     if (!confirm('PERMANENTLY EXTERMINATE IDENTITY?')) return;
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
-    if (error) showNotification(error.message, 'error');
-    else {
+    try {
+      // Use the secure database function that handles both auth and profile deletion
+      const { error } = await supabase.rpc('delete_user_completely', { user_id: userId });
+      if (error) throw error;
       showNotification('Identity Purged.', 'success');
       fetchDashboardData();
+    } catch (err: any) {
+      showNotification('Purge Failed: ' + err.message, 'error');
     }
   };
 
@@ -249,14 +281,11 @@ export default function AdminDashboard() {
     }
   };
 
-  const openEditModal = async (event: any) => {
+  const openEditModal = async (event: DashboardEvent) => {
     setEditingEvent(event);
-    let finalDescription = event.description || '';
-    if (finalDescription.startsWith('[REG_CONFIG:')) {
-      const endIdx = finalDescription.indexOf(']');
-      finalDescription = finalDescription.substring(endIdx + 1);
-    }
-    setEventForm({ ...event, description: finalDescription });
+    // Use utility to parse description
+    const { description: cleanDescription } = parseEventDescription(event.description || '');
+    setEventForm({ ...event, description: cleanDescription });
     const { data } = await supabase.from('event_variants').select('*').eq('event_id', event.id);
     setVariants(data || []);
     setIsEventModalOpen(true);
@@ -349,7 +378,7 @@ export default function AdminDashboard() {
                   <StatCard label="Live Events" value={eventCount.toString()} trend="Status" icon={<Calendar className="text-red-500" />} />
                   <StatCard label="Node State" value="Optimal" trend="Kernel" icon={<Activity className="text-red-500" />} />
                   <StatCard label="Total Regs" value={registrations.length.toString()} trend="Total" icon={<Users className="text-red-500" />} />
-                  <StatCard label="Gross RM" value={`${(registrations.length * 150).toLocaleString()}`} trend="Estimate" icon={<TrendingUp className="text-red-500" />} />
+                  <StatCard label="Gross RM" value={`RM ${registrations.reduce((sum, reg) => sum + (reg.event_variants?.price || 0), 0).toLocaleString()}`} trend="Actual" icon={<TrendingUp className="text-red-500" />} />
                 </div>
               </motion.div>
             )}
@@ -396,11 +425,21 @@ export default function AdminDashboard() {
                             </tr>
                           );
                         })}
-                      </tbody>
-                   </table>
-                </div>
-              </motion.div>
-            )}
+</tbody>
+                    </table>
+                    <Pagination
+                      currentPage={usersPage}
+                      totalItems={totalUsers}
+                      pageSize={PAGE_SIZE}
+                      onPageChange={(page) => {
+                        setUsersPage(page);
+                        setLoading(true);
+                        fetchDashboardData();
+                      }}
+                    />
+                 </div>
+               </motion.div>
+             )}
 
             {activeTab === 'events' && (
               <motion.div key="events" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -412,28 +451,42 @@ export default function AdminDashboard() {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {events.map(event => (
-                    <div key={event.id} className="bg-[#0a0a0a] border border-white/5 rounded-[2rem] overflow-hidden group hover:border-red-600/30 transition-all shadow-2xl flex flex-col">
-                      <div className="h-40 relative overflow-hidden">
-                        <img src={event.banner_image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-4 left-6"><h4 className="text-lg font-display font-black uppercase tracking-tighter">{event.title}</h4></div>
-                      </div>
-                      <div className="p-6 flex justify-between items-center mt-auto">
-                         <div className="flex gap-2">
-                            {userProfile?.role === 'organizer' && (
-                              <button onClick={() => openEditModal(event)} className="w-10 h-10 flex items-center justify-center bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"><Edit2 size={16} /></button>
-                            )}
-                            <button onClick={() => purgeEvent(event.id)} className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
-                         </div>
-                         <button onClick={() => navigate(`/event/${event.id}`)} className="text-[9px] font-black uppercase text-red-500 tracking-widest hover:underline">Preview</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                   {events.map(event => (
+                     <div key={event.id} className="bg-[#0a0a0a] border border-white/5 rounded-[2rem] overflow-hidden group hover:border-red-600/30 transition-all shadow-2xl flex flex-col">
+                       <div className="h-40 relative overflow-hidden">
+                         <ImageWithFallback
+                           src={event.banner_image || event.image_url}
+                           alt={event.title}
+                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                         />
+                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                         <div className="absolute bottom-4 left-6"><h4 className="text-lg font-display font-black uppercase tracking-tighter">{event.title}</h4></div>
+                       </div>
+                       <div className="p-6 flex justify-between items-center mt-auto">
+                          <div className="flex gap-2">
+                             {userProfile?.role === 'organizer' && (
+                               <button onClick={() => openEditModal(event)} className="w-10 h-10 flex items-center justify-center bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"><Edit2 size={16} /></button>
+                             )}
+                             <button onClick={() => purgeEvent(event.id)} className="w-10 h-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
+                          </div>
+                          <button onClick={() => navigate(`/event/${event.id}`)} className="text-[9px] font-black uppercase text-red-500 tracking-widest hover:underline">Preview</button>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+                    <Pagination
+                      currentPage={eventsPage}
+                      totalItems={totalEvents}
+                      pageSize={PAGE_SIZE}
+                      onPageChange={(page) => {
+                        setEventsPage(page);
+                        setLoading(true);
+                        fetchDashboardData();
+                      }}
+                    />
+               </motion.div>
+             )}
           </AnimatePresence>
         </div>
       </main>

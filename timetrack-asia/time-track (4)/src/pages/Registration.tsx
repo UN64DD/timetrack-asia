@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../lib/LanguageContext';
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
+import { useNotification } from '../lib/NotificationContext';
+import {
+  ArrowLeft,
+  CheckCircle2,
   ShieldCheck,
   CreditCard,
   User,
@@ -23,13 +24,59 @@ import { supabase } from '../lib/supabase';
 import CustomCalendar from '../components/CustomCalendar';
 import CustomDropdown from '../components/CustomDropdown';
 
+// Validation helpers
+const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidPhone = (phone: string): boolean => /^[\d\s\+\-\(\)]{7,}$/.test(phone);
+const isValidMalaysianIC = (ic: string): boolean => /^\d{6}-\d{2}-\d{4}$/.test(ic) || /^\d{12}$/.test(ic);
+
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+const validateBilling = (data: any): ValidationError[] => {
+  const errors: ValidationError[] = [];
+  if (!data.first_name?.trim()) errors.push({ field: 'billing.first_name', message: 'First name is required' });
+  if (!data.email?.trim()) errors.push({ field: 'billing.email', message: 'Email is required' });
+  else if (!isValidEmail(data.email)) errors.push({ field: 'billing.email', message: 'Invalid email format' });
+  if (!data.phone?.trim()) errors.push({ field: 'billing.phone', message: 'Phone number is required' });
+  else if (!isValidPhone(data.phone)) errors.push({ field: 'billing.phone', message: 'Invalid phone format' });
+  if (!data.country?.trim()) errors.push({ field: 'billing.country', message: 'Country is required' });
+  if (!data.town_city?.trim()) errors.push({ field: 'billing.town_city', message: 'Town/City is required' });
+  if (!data.postcode?.trim()) errors.push({ field: 'billing.postcode', message: 'Postcode is required' });
+  return errors;
+};
+
+const validateAttendee = (data: any): ValidationError[] => {
+  const errors: ValidationError[] = [];
+  if (!data.full_name?.trim()) errors.push({ field: 'attendee.full_name', message: 'Full name is required' });
+  if (!data.email?.trim()) errors.push({ field: 'attendee.email', message: 'Email is required' });
+  else if (!isValidEmail(data.email)) errors.push({ field: 'attendee.email', message: 'Invalid email format' });
+  if (!data.phone?.trim()) errors.push({ field: 'attendee.phone', message: 'Phone number is required' });
+  else if (!isValidPhone(data.phone)) errors.push({ field: 'attendee.phone', message: 'Invalid phone format' });
+  if (!data.gender) errors.push({ field: 'attendee.gender', message: 'Gender is required' });
+  if (!data.ic_passport?.trim()) errors.push({ field: 'attendee.ic_passport', message: 'IC/Passport is required' });
+  else if (!isValidMalaysianIC(data.ic_passport)) errors.push({ field: 'attendee.ic_passport', message: 'Invalid IC/Passport format' });
+  if (!data.dob) errors.push({ field: 'attendee.dob', message: 'Date of birth is required' });
+  if (!data.age) errors.push({ field: 'attendee.age', message: 'Age is required' });
+  else if (parseInt(data.age) < 13) errors.push({ field: 'attendee.age', message: 'Must be at least 13 years old' });
+  if (!data.emergency_name?.trim()) errors.push({ field: 'attendee.emergency_name', message: 'Emergency contact name is required' });
+  if (!data.emergency_phone?.trim()) errors.push({ field: 'attendee.emergency_phone', message: 'Emergency contact number is required' });
+  if (data.medical_status === 'CONDITION' && !data.medical_details?.trim()) {
+    errors.push({ field: 'attendee.medical_details', message: 'Medical details are required when condition is selected' });
+  }
+  return errors;
+};
+
 export default function Registration() {
   const { id, variantId } = useParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { showNotification } = useNotification();
   const [step, setStep] = useState(1);
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<ValidationError[]>([]);
 
   const [formData, setFormData] = useState({
     billing: {
@@ -94,9 +141,22 @@ export default function Registration() {
   
   const handleRegistration = async () => {
     if (!variant) {
-      alert('Please select a variant');
+      showNotification('Please select a variant', 'error');
       return;
     }
+
+    // Validate billing and attendee data
+    const billingErrors = validateBilling(formData.billing);
+    const attendeeErrors = validateAttendee(formData.attendee);
+    const allErrors = [...billingErrors, ...attendeeErrors];
+
+    if (allErrors.length > 0) {
+      setErrors(allErrors);
+      showNotification(`Please fix ${allErrors.length} validation error(s)`, 'error');
+      return;
+    }
+
+    setErrors([]);
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -115,7 +175,7 @@ export default function Registration() {
         .maybeSingle();
         
       if (existing) {
-        alert('You are already registered for this event variant');
+        showNotification('You are already registered for this event variant', 'error');
         return;
       }
       
@@ -131,11 +191,11 @@ export default function Registration() {
         
       if (error) throw error;
       
-      alert('Registration successful!');
+      showNotification('Registration successful!', 'success');
       navigate('/profile');
     } catch (err: any) {
       console.error('Registration error:', err);
-      alert('Registration failed: ' + err.message);
+      showNotification('Registration failed: ' + err.message, 'error');
     }
   };
 
@@ -217,6 +277,17 @@ export default function Registration() {
           {step === 1 && (
             <div className="space-y-10">
               <h2 className="text-3xl font-display font-black uppercase tracking-tighter italic border-l-4 border-brand pl-6">Billing <span className="text-brand">Details</span></h2>
+
+              {/* Validation Errors Display */}
+              {errors.filter(e => e.field.startsWith('billing')).length > 0 && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+                  <p className="text-red-500 text-[10px] font-black uppercase tracking-widest mb-2">Please fix the following:</p>
+                  {errors.filter(e => e.field.startsWith('billing')).map((err, idx) => (
+                    <p key={idx} className="text-red-400 text-[9px]">• {err.message}</p>
+                  ))}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 {config.billing.first_name && (
                   <div className="space-y-3">
@@ -274,6 +345,17 @@ export default function Registration() {
           {step === 2 && (
             <div className="space-y-12">
                <h2 className="text-3xl font-display font-black uppercase tracking-tighter italic border-l-4 border-brand pl-6">Attendee <span className="text-brand">Information</span></h2>
+
+               {/* Validation Errors Display */}
+               {errors.filter(e => e.field.startsWith('attendee')).length > 0 && (
+                 <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+                   <p className="text-red-500 text-[10px] font-black uppercase tracking-widest mb-2">Please fix the following:</p>
+                   {errors.filter(e => e.field.startsWith('attendee')).map((err, idx) => (
+                     <p key={idx} className="text-red-400 text-[9px]">• {err.message}</p>
+                   ))}
+                 </div>
+               )}
+
                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                  {config.attendee.full_name && (
                    <div className="space-y-3">

@@ -9,11 +9,12 @@ export const EVENTS: SportsEvent[] = [
     title: 'Upcoming Adventure Trail',
     date: 'TBA 2026',
     location: 'Hidden Location',
-    price: 'RM0.00',
+    price_range: 'RM0.00',
     category: 'Trail',
-    status: 'Archived', // Using Archived status to keep it non-interactive for now
-    image: placeholderImg,
+    status: 'draft', // Changed from 'Archived' to valid status
+    banner_image: placeholderImg,
     description: 'This is a placeholder for a future event. Organizers will be able to add their own events here soon.',
+    organizer_id: '',
     variants: []
   },
   {
@@ -21,11 +22,12 @@ export const EVENTS: SportsEvent[] = [
     title: 'Neon Night Run Series',
     date: 'TBA 2026',
     location: 'Metropolitan Area',
-    price: 'RM0.00',
+    price_range: 'RM0.00',
     category: 'Night',
-    status: 'Archived',
-    image: placeholderImg,
+    status: 'draft',
+    banner_image: placeholderImg,
     description: 'This is a placeholder for a future event. Organizers will be able to add their own events here soon.',
+    organizer_id: '',
     variants: []
   },
   {
@@ -33,11 +35,12 @@ export const EVENTS: SportsEvent[] = [
     title: 'Ultra Endurance Challenge',
     date: 'TBA 2026',
     location: 'Mountain Range',
-    price: 'RM0.00',
+    price_range: 'RM0.00',
     category: 'Ultra',
-    status: 'Archived',
-    image: placeholderImg,
+    status: 'draft',
+    banner_image: placeholderImg,
     description: 'This is a placeholder for a future event. Organizers will be able to add their own events here soon.',
+    organizer_id: '',
     variants: []
   }
 ];

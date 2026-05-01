@@ -21,6 +21,7 @@ import DeveloperDashboard from './pages/DeveloperDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import { LanguageProvider } from './lib/LanguageContext';
 import { NotificationProvider } from './lib/NotificationContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Laptop, ShieldX } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -100,10 +101,11 @@ function App() {
   }, []);
 
   return (
-    <IPFirewall>
-      <LanguageProvider>
-        <NotificationProvider>
-          {isDev ? (
+    <ErrorBoundary>
+      <IPFirewall>
+        <LanguageProvider>
+          <NotificationProvider>
+            {isDev ? (
             <DesktopGuard theme="purple">
               <div className="min-h-screen bg-black">
                 <Routes>
@@ -160,10 +162,11 @@ function App() {
               <Footer />
             </div>
           )}
-        </NotificationProvider>
-      </LanguageProvider>
-    </IPFirewall>
-  );
-}
+</NotificationProvider>
+         </LanguageProvider>
+       </IPFirewall>
+     </ErrorBoundary>
+   );
+ }
 
 export default App;

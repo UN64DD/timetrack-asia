@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Calendar, MapPin, ArrowLeft, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { parseEventDescription } from '../lib/eventMetadata';
+import ImageWithFallback from '../components/ImageWithFallback';
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -14,7 +16,7 @@ export default function EventDetail() {
     fetchEventDetails();
   }, [id]);
 
-  const fetchEventDetails = async () => {
+const fetchEventDetails = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -23,13 +25,11 @@ export default function EventDetail() {
         .eq('id', id)
         .single();
       if (error) throw error;
-       
-      // Clean description if it contains metadata
-      let processedData = { ...data };
-      if (data.description && data.description.includes('[PROTOCOL_DATA:')) {
-        processedData.description = data.description.split('[PROTOCOL_DATA:')[0].trim();
-      }
- 
+
+      // Clean description using utility
+      const { description: cleanDescription } = parseEventDescription(data.description || '');
+      const processedData = { ...data, description: cleanDescription };
+
       setEvent(processedData);
     } catch (err: any) {
       console.error(err);
@@ -47,9 +47,13 @@ export default function EventDetail() {
         <button onClick={() => navigate('/events')} className="flex items-center gap-2 text-white/40 mb-8 uppercase text-xs">
           <ArrowLeft size={16} /> Back
         </button>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div>
-            <img src={event.image_url || event.banner_image} className="w-full rounded-2xl mb-8 shadow-2xl border border-white/5" alt={event.title} />
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+           <div>
+             <ImageWithFallback
+               src={event.image_url || event.banner_image}
+               alt={event.title}
+               className="w-full rounded-2xl mb-8 shadow-2xl border border-white/5"
+             />
             <h1 className="text-5xl font-display font-black uppercase mb-6">{event.title}</h1>
             <p className="text-white/60 mb-8">{event.description}</p>
           </div>
