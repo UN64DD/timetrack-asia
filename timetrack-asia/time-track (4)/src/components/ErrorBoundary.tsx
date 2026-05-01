@@ -1,5 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { ReloadCW, AlertTriangle } from 'lucide-react';
+import { RotateCw, AlertTriangle } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -52,7 +52,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               onClick={this.handleReload}
               className="flex items-center gap-2 mx-auto px-6 py-3 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-red-500 transition-all"
             >
-              <RelaodCW size={14} />
+              <RotateCw size={14} />
               Reload Application
             </button>
           </div>

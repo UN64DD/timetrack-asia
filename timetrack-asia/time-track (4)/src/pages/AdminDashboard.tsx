@@ -17,7 +17,7 @@ import {
 } from 'recharts';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/NotificationContext';
-import { DashboardEvent, DashboardUser, DashboardRegistration } from '../types';
+import { DashboardEvent, DashboardUser, DashboardRegistration, EventVariant } from '../types';
 
 const ROOT_EMAIL = import.meta.env.VITE_ROOT_ADMIN_EMAIL || 'nithyananthanimalan@gmail.com';
 
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const toggleBanStatus = async (userId: string, userEmail: string, currentStatus: string) => {
+  const toggleBanStatus = async (userId: string, userEmail: string | undefined, currentStatus: string) => {
     if (userEmail === ROOT_EMAIL) return showNotification('ROOT IMMORTAL', 'error');
     const newStatus = currentStatus === 'banned' ? 'active' : 'banned';
     const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
@@ -167,7 +167,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const purgeUser = async (userId: string, userEmail: string) => {
+  const purgeUser = async (userId: string, userEmail: string | undefined) => {
     if (userEmail === ROOT_EMAIL) return showNotification('ROOT PROTECTION ACTIVE', 'error');
     if (!confirm('PERMANENTLY EXTERMINATE IDENTITY?')) return;
     try {
@@ -262,7 +262,7 @@ export default function AdminDashboard() {
       if (variants.length > 0) {
         const variantsWithEvent = variants.map(v => ({ 
           name: v.name || 'Default', 
-          price: parseFloat(v.price) || 0, 
+          price: v.price || 0, 
           event_id: eventId 
         }));
         const { error: variantError } = await supabase
@@ -285,7 +285,15 @@ export default function AdminDashboard() {
     setEditingEvent(event);
     // Use utility to parse description
     const { description: cleanDescription } = parseEventDescription(event.description || '');
-    setEventForm({ ...event, description: cleanDescription });
+    setEventForm({
+      title: event.title || '',
+      description: cleanDescription,
+      date: event.date || '',
+      location: event.location || '',
+      category: event.category || 'Running',
+      banner_image: event.banner_image || event.image_url || '',
+      status: event.status || 'upcoming'
+    });
     const { data } = await supabase.from('event_variants').select('*').eq('event_id', event.id);
     setVariants(data || []);
     setIsEventModalOpen(true);
@@ -332,10 +340,10 @@ export default function AdminDashboard() {
           <div className="mb-8 p-4 bg-red-600/5 border border-red-500/10 rounded-2xl">
              <div className="flex justify-between items-center mb-2">
                 <span className="text-[8px] font-black uppercase tracking-widest text-white/40">Event Quota</span>
-                <span className={`text-[8px] font-black ${isQuotaReached ? 'text-red-500' : 'text-green-500'}`}>{eventCount} / {userProfile?.event_limit}</span>
+                <span className={`text-[8px] font-black ${isQuotaReached ? 'text-red-500' : 'text-green-500'}`}>{eventCount} / {userProfile?.event_limit ?? 0}</span>
              </div>
              <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((eventCount / userProfile?.event_limit) * 100, 100)}%` }} className={`h-full ${isQuotaReached ? 'bg-red-500' : 'bg-red-600'}`} />
+                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((eventCount / (userProfile?.event_limit ?? 1)) * 100, 100)}%` }} className={`h-full ${isQuotaReached ? 'bg-red-500' : 'bg-red-600'}`} />
              </div>
           </div>
         )}
@@ -418,8 +426,8 @@ export default function AdminDashboard() {
                               </td>
                               <td className="p-6 text-right">
                                  <div className="flex items-center justify-end gap-2">
-                                    <button onClick={() => toggleBanStatus(u.id, u.email, u.status)} disabled={isTargetRoot} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${u.status === 'banned' ? 'bg-green-600/20 text-green-500' : 'bg-red-600/20 text-red-500'} ${isTargetRoot ? 'opacity-10 grayscale cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>{u.status === 'banned' ? 'REINSTATE' : 'BANISH'}</button>
-                                    <button onClick={() => purgeUser(u.id, u.email)} disabled={isTargetRoot} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all bg-white/5 text-white/20 ${isTargetRoot ? 'opacity-10 grayscale cursor-not-allowed' : 'hover:bg-red-600 hover:text-white hover:scale-105 active:scale-95'}`}>PURGE</button>
+<button onClick={() => toggleBanStatus(u.id, u.email ?? '', u.status as string)} disabled={isTargetRoot} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${u.status === 'banned' ? 'bg-green-600/20 text-green-500' : 'bg-red-600/20 text-red-500'} ${isTargetRoot ? 'opacity-10 grayscale cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}>{u.status === 'banned' ? 'REINSTATE' : 'BANISH'}</button>
+                                       <button onClick={() => purgeUser(u.id, u.email!)} disabled={isTargetRoot} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all bg-white/5 text-white/20 ${isTargetRoot ? 'opacity-10 grayscale cursor-not-allowed' : 'hover:bg-red-600 hover:text-white hover:scale-105 active:scale-95'}`}>PURGE</button>
                                  </div>
                               </td>
                             </tr>

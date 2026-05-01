@@ -21,7 +21,7 @@ import DeveloperDashboard from './pages/DeveloperDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import { LanguageProvider } from './lib/LanguageContext';
 import { NotificationProvider } from './lib/NotificationContext';
-import ErrorBoundary from './components/ErrorBoundary';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Laptop, ShieldX } from 'lucide-react';
 import { supabase } from './lib/supabase';
 

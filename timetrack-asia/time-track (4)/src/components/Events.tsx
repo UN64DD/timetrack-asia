@@ -11,8 +11,8 @@ import CrypticText from './CrypticText';
 
 export default function Events() {
   const { t } = useLanguage();
-  const upcomingEvents = EVENTS.filter(e => e.status !== 'Archived');
-  const archivedEvents = EVENTS.filter(e => e.status === 'Archived');
+  const upcomingEvents = EVENTS.filter(e => e.status !== 'draft');
+  const archivedEvents = EVENTS.filter(e => e.status === 'draft');
 
   return (
     <section id="events" className="py-24 px-6 space-y-32">
