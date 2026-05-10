@@ -3,8 +3,28 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import hpp from 'hpp';
-const xss = require('xss-clean');
 import dotenv from 'dotenv';
+
+// Simple XSS sanitization middleware (Express 5 compatible)
+function simpleXss() {
+  return (req: any, _res: any, next: any) => {
+    if (req.body) sanitizeDeep(req.body);
+    if (req.params) sanitizeDeep(req.params);
+    next();
+  };
+}
+function sanitizeDeep(obj: any): any {
+  if (typeof obj === 'string') {
+    return obj.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+              .replace(/on\w+\s*=\s*['"]?[^'"]*['"]?/gi, '');
+  }
+  if (obj && typeof obj === 'object') {
+    for (const key of Object.keys(obj)) {
+      obj[key] = sanitizeDeep(obj[key]);
+    }
+  }
+  return obj;
+}
 import authRoutes from './modules/auth/routes/auth.routes';
 import eventsRoutes from './modules/events/routes/events.routes';
 import registrationsRoutes from './modules/registrations/routes/registrations.routes';
@@ -29,7 +49,7 @@ app.use((req, res, next) => {
 app.use(helmet()); // Set security HTTP headers
 app.use(cors()); // Enable CORS
 app.use(express.json({ limit: '10kb' })); // Body parser, reading data from body into req.body (limit to prevent large payloads)
-app.use(xss()); // Data sanitization against XSS
+app.use(simpleXss()); // Data sanitization against XSS
 app.use(hpp()); // Prevent HTTP Parameter Pollution
 
 // 2. Rate Limiting
