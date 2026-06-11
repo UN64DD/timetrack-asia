@@ -1,0 +1,198 @@
+'use client';
+
+import { createContext, useContext, useState, type ReactNode } from 'react';
+
+type Language = 'EN' | 'BM';
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+const translations: Record<Language, Record<string, string>> = {
+  EN: {
+    'nav.home': 'HOME',
+    'nav.events': 'EVENTS',
+    'nav.results': 'RESULTS',
+    'nav.about': 'ABOUT US',
+    'nav.contact': 'GET IN TOUCH',
+    'nav.login': 'LOGIN',
+    'nav.signup': 'SIGN UP',
+    'nav.profile': 'PROFILE',
+    'nav.logout': 'LOGOUT',
+    'hero.subtitle': 'STAY WITH US FOR MORE UPCOMING SPORTS EVENTS',
+    'hero.title1': 'EVERY',
+    'hero.title2': 'SECOND',
+    'hero.title3': 'COUNTS',
+    'hero.desc': 'Time Track provides the best sports timing and event management services in Malaysia. Excellence in every millisecond.',
+    'hero.cta1': 'Upcoming Events',
+    'hero.cta2': 'Login',
+    'marquee.text': 'EVERY SECOND COUNTS',
+    'events.reg_open': 'Registration Open',
+    'events.upcoming': 'UPCOMING',
+    'events.events': 'EVENTS',
+    'events.desc': 'Secure your spot in the most anticipated races of 2026.',
+    'events.archive': 'EVENT ARCHIVE',
+    'events.view_more': 'View More Events',
+    'events_page.title': 'THE EVENTS',
+    'events_page.desc': 'Discover upcoming challenges and secure your spot.',
+    'about.hero.title': 'About Time Track',
+    'about.hero.desc': 'We are dedicated to simplifying sports through technology.',
+    'about.mission.title': 'Our Mission',
+    'about.mission.desc': 'Time Track is a modern platform designed to make sports event management easier for everyone.',
+    'footer.explore': 'Explore',
+    'footer.policy': 'Our Policy',
+    'footer.privacy': 'Privacy Policy',
+    'footer.refund': 'Return & Refund Policy',
+    'footer.copyright': 'Copyright ©2026 Time Track | All Right Reserved',
+    'login.title': 'WELCOME BACK',
+    'login.subtitle': 'Sign in to access your track performance and upcoming races.',
+    'login.email': 'Email Address',
+    'login.password': 'Password',
+    'login.signin': 'Sign In',
+    'login.no_account': "Don't have an account?",
+    'login.signup': 'Sign Up',
+    'login.forgot': 'Forgot Password?',
+    'signup.title': 'CREATE ACCOUNT',
+    'signup.subtitle': 'Join the track and start dominating the field.',
+    'signup.name': 'Full Name',
+    'signup.already': 'Already have an account?',
+    'signup.button': 'Create Account',
+    'signup.role.athlete': 'Athlete / Participant',
+    'signup.role.organizer': 'Event Organizer',
+    'signup.secret': 'Organizer Access Code',
+    'signup.secret_placeholder': 'ENTER CLEARANCE CODE',
+    'forgot.back': 'Back to Login',
+    'contact.title': 'CONTACT US',
+    'contact.subtitle': 'HAVE A QUESTION? OUR TEAM IS READY TO ASSIST YOU.',
+    'contact.name': 'Name',
+    'contact.email': 'Email',
+    'contact.message': 'Message',
+    'contact.send': 'Send Message',
+    'results.title': 'Race Results',
+    'results.desc': 'Find official results, rankings, and digital certificates.',
+    'results.search': 'Search by event name or bib number...',
+    'results.view.board': 'View Leaderboard',
+    'events.no_found': 'No Events Found',
+    'events.search_placeholder': 'Search for events or locations...',
+    'events.reset': 'Clear Search',
+    'card.open': 'Open',
+    'card.archived': 'Archived',
+    'card.reg_now': 'Register Now',
+    'card.reg_closed': 'Registration Closed',
+    'home.precision': 'Lightning Precision',
+    'home.precision_desc': 'Providing the most accurate millisecond timing using industry-leading RFID technology.',
+    'home.mgmt': 'Event Management',
+    'home.mgmt_desc': "From registration to finish line, we ensure a seamless experience.",
+    'home.results': 'Result Services',
+    'home.results_desc': 'Instant live tracking and certified digital results available immediately.',
+    'home.ready': 'READY TO RACE?',
+    'home.join': 'Join the Track',
+    'loading.status': 'System_Status: Optimal',
+    'loading.init': 'Init. Systems',
+  },
+  BM: {
+    'nav.home': 'LAMAN UTAMA',
+    'nav.events': 'ACARA',
+    'nav.results': 'KEPUTUSAN',
+    'nav.about': 'TENTANG KAMI',
+    'nav.contact': 'HUBUNGI KAMI',
+    'nav.login': 'LOG MASUK',
+    'nav.signup': 'DAFTAR',
+    'nav.profile': 'PROFIL',
+    'nav.logout': 'LOG KELUAR',
+    'hero.subtitle': 'IKUTI KAMI UNTUK LEBIH BANYAK ACARA SUKAN AKAN DATANG',
+    'hero.title1': 'SETIAP',
+    'hero.title2': 'SAAT',
+    'hero.title3': 'BERHARGA',
+    'hero.desc': 'Time Track menyediakan perkhidmatan masa sukan dan pengurusan acara terbaik di Malaysia.',
+    'hero.cta1': 'Acara Akan Datang',
+    'hero.cta2': 'Log Masuk',
+    'marquee.text': 'SETIAP SAAT BERHARGA',
+    'events.reg_open': 'Pendaftaran Dibuka',
+    'events.upcoming': 'ACARA MENDATANG',
+    'events.events': 'ACARA',
+    'events.desc': 'Tempah slot anda dalam perlumbaan yang paling dinantikan pada 2026.',
+    'events.archive': 'ARKIB ACARA',
+    'events.view_more': 'Lihat Lebih Banyak Acara',
+    'events_page.title': 'KALENDAR ACARA',
+    'events_page.desc': 'Temui cabaran akan datang dan tempah slot anda.',
+    'about.hero.title': 'Tentang Time Track',
+    'about.hero.desc': 'Kami berdedikasi untuk memudahkan sukan melalui teknologi.',
+    'about.mission.title': 'Misi Kami',
+    'about.mission.desc': 'Time Track adalah platform moden untuk memudahkan pengurusan acara sukan.',
+    'footer.explore': 'Teroka',
+    'footer.policy': 'Polisi Kami',
+    'footer.privacy': 'Polisi Privasi',
+    'footer.refund': 'Polisi Pemulangan & Bayaran Balik',
+    'footer.copyright': 'Hak Cipta ©2026 Time Track | Semua Hak Terpelihara',
+    'login.title': 'SELAMAT KEMBALI',
+    'login.subtitle': 'Log masuk untuk akses prestasi larian dan acara akan datang.',
+    'login.email': 'Alamat Emel',
+    'login.password': 'Kata Laluan',
+    'login.signin': 'Log Masuk',
+    'login.no_account': 'Tiada akaun?',
+    'login.signup': 'Daftar Sekarang',
+    'login.forgot': 'Lupa Kata Laluan?',
+    'signup.title': 'DAFTAR AKAUN',
+    'signup.subtitle': 'Sertai larian dan mula menguasai padang.',
+    'signup.name': 'Nama Penuh',
+    'signup.already': 'Sudah mempunyai akaun?',
+    'signup.button': 'Daftar Sekarang',
+    'signup.role.athlete': 'Atlet / Peserta',
+    'signup.role.organizer': 'Penganjur Acara',
+    'signup.secret': 'Kod Akses Penganjur',
+    'signup.secret_placeholder': 'MASUKKAN KOD PELEPASAN',
+    'forgot.back': 'Kembali ke Log Masuk',
+    'contact.title': 'HUBUNGI KAMI',
+    'contact.subtitle': 'ADA PERTANYAAN? PASUKAN KAMI SEDIA MEMBANTU.',
+    'contact.name': 'Nama',
+    'contact.email': 'E-mel',
+    'contact.message': 'Mesej',
+    'contact.send': 'Hantar Mesej',
+    'results.title': 'Keputusan Perlumbaan',
+    'results.desc': 'Cari keputusan rasmi, kedudukan, dan sijil digital.',
+    'results.search': 'Cari mengikut nama acara atau nombor bib...',
+    'results.view.board': 'Lihat Carta Kedudukan',
+    'events.no_found': 'Tiada Acara Dijumpai',
+    'events.search_placeholder': 'Cari acara atau lokasi...',
+    'events.reset': 'Kosongkan Carian',
+    'card.open': 'Buka',
+    'card.archived': 'Arkib',
+    'card.reg_now': 'Daftar Sekarang',
+    'card.reg_closed': 'Pendaftaran Ditutup',
+    'home.precision': 'Ketepatan Kilat',
+    'home.precision_desc': 'Menyediakan catatan masa milisaat paling tepat menggunakan teknologi RFID terkemuka.',
+    'home.mgmt': 'Pengurusan Acara',
+    'home.mgmt_desc': 'Dari pendaftaran hingga ke garis penamat, pengalaman yang lancar.',
+    'home.results': 'Perkhidmatan Keputusan',
+    'home.results_desc': 'Penjejakan langsung dan keputusan digital yang diperakui tersedia serta-merta.',
+    'home.ready': 'SEDIA UNTUK BERLUMBA?',
+    'home.join': 'Sertai Kami',
+    'loading.status': 'Status_Sistem: Optimum',
+    'loading.init': 'Memulakan Sistem',
+  },
+};
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguage] = useState<Language>('EN');
+
+  const t = (key: string) => translations[language][key] || key;
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+}
