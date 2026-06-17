@@ -25,16 +25,6 @@ export function checkRateLimit(
   return { allowed: true, remaining: config.maxRequests - record.count, resetAt: record.resetAt };
 }
 
-// Clean up expired entries every 5 minutes
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, record] of rateLimitStore.entries()) {
-      if (now > record.resetAt) rateLimitStore.delete(key);
-    }
-  }, 5 * 60 * 1000);
-}
-
 // IP-based rate limit for API routes
 export function getRateLimitKey(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');

@@ -6,7 +6,7 @@ const ADMIN_PATHS = ['/admin'];
 const ORGANIZER_PATHS = ['/organizer'];
 const DEVELOPER_PATHS = ['/developer'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next();
 
   const supabase = createServerClient(
